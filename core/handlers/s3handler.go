@@ -85,7 +85,6 @@ func (s *s3Syncer) Handle(ctx context.Context, event watcher.Event, wg *sync.Wai
 		log.Println("Cancelation signal received. Syncing session will be skipped")
 	default:
 		err = s.sync()
-		return err
 	}
 	wg.Done()
 	return err
