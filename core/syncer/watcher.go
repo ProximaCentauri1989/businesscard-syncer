@@ -14,7 +14,7 @@ type Handler interface {
 	Handle(ctx context.Context, event watcher.Event, wg *sync.WaitGroup)
 }
 
-type Syncer struct {
+type Watcher struct {
 	root            string
 	watch           *watcher.Watcher
 	pollingInterval time.Duration
@@ -24,7 +24,7 @@ type Syncer struct {
 }
 
 // Creates a new syncer and starts event listening. Event polling should be started by caller manually using 'Start' method
-func NewSyncer(root string) (*Syncer, error) {
+func NewWatcher(root string) (*Watcher, error) {
 	w := watcher.New()
 	w.SetMaxEvents(1)
 	w.FilterOps(
@@ -35,7 +35,7 @@ func NewSyncer(root string) (*Syncer, error) {
 		watcher.Chmod,
 		watcher.Write)
 
-	syncer := &Syncer{
+	syncer := &Watcher{
 		root:         root,
 		watch:        w,
 		wg:           new(sync.WaitGroup),
@@ -48,16 +48,16 @@ func NewSyncer(root string) (*Syncer, error) {
 	return syncer, nil
 }
 
-func (s *Syncer) listen() {
+func (s *Watcher) listen() {
 	go func() {
 		for {
 			select {
 			case event := <-s.watch.Event:
 				ctx, cancel := context.WithCancel(context.Background())
-				for _, handle := range s.eventHandlers {
+				for _, h := range s.eventHandlers {
 					s.cancelations = append(s.cancelations, cancel)
 					s.wg.Add(1)
-					go handle(ctx, event, s.wg)
+					go h.Handle(ctx, event, s.wg)
 				}
 			case err := <-s.watch.Error:
 				log.Fatalln(err)
@@ -68,18 +68,18 @@ func (s *Syncer) listen() {
 	}()
 }
 
-func (s *Syncer) Start(pollingInterval time.Duration) error {
+func (s *Watcher) Start(pollingInterval time.Duration) error {
 	s.pollingInterval = pollingInterval
 	// detach event listening
 	s.listen()
 	return s.watch.Start(s.pollingInterval)
 }
 
-func (s *Syncer) Add(name string, handle Handler) {
+func (s *Watcher) Add(name string, handle Handler) {
 	s.eventHandlers[name] = handle
 }
 
-func (s *Syncer) Stop() {
+func (s *Watcher) Stop() {
 	for _, cancel := range s.cancelations {
 		cancel()
 	}
@@ -87,7 +87,7 @@ func (s *Syncer) Stop() {
 	s.wg.Wait()
 }
 
-func (s *Syncer) ShowWatchContext() []models.Object {
+func (s *Watcher) ShowWatchContext() []models.Object {
 	objects := make([]models.Object, 0)
 	for path, f := range s.watch.WatchedFiles() {
 		objects = append(objects, models.Object{
@@ -98,7 +98,7 @@ func (s *Syncer) ShowWatchContext() []models.Object {
 	return objects
 }
 
-func (s *Syncer) ListHandlers() []string {
+func (s *Watcher) ListHandlers() []string {
 	handlers := make([]string, 0)
 	for name, _ := range s.eventHandlers {
 		handlers = append(handlers, name)
