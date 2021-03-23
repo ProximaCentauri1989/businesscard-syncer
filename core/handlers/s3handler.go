@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -78,16 +79,18 @@ func NewS3Syncer(region, bucket, root string) *s3Syncer {
 	}
 }
 
-func (s *s3Syncer) Handle(ctx context.Context, event watcher.Event, wg *sync.WaitGroup) error {
-	var err error = nil
+func (s *s3Syncer) Handle(ctx context.Context, event watcher.Event, wg *sync.WaitGroup) {
+	log.Printf("Event %s received at %s", event.Name(), time.Now().String())
+
 	select {
 	case <-ctx.Done():
 		log.Println("Cancelation signal received. Syncing session will be skipped")
 	default:
-		err = s.sync()
+		if err := s.sync(); err != nil {
+			log.Printf("Failed to sync folder '%s' with bucker '%s'", s.root, s.bucketName)
+		}
 	}
 	wg.Done()
-	return err
 }
 
 func (s *s3Syncer) newSyncIterator() *SyncFolderIterator {

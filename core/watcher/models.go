@@ -1,4 +1,4 @@
-package syncer
+package watcher
 
 import (
 	"os"

@@ -1,12 +1,12 @@
-package syncer
+package watcher
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 	"time"
 
-	"github.com/ProximaCentauri1989/businesscard-syncer/models"
 	"github.com/radovskyb/watcher"
 )
 
@@ -25,6 +25,9 @@ type Watcher struct {
 
 // Creates a new syncer and starts event listening. Event polling should be started by caller manually using 'Start' method
 func NewWatcher(root string) (*Watcher, error) {
+	if root == "" {
+		return nil, fmt.Errorf("root can not be empty")
+	}
 	w := watcher.New()
 	w.SetMaxEvents(1)
 	w.FilterOps(
@@ -36,10 +39,11 @@ func NewWatcher(root string) (*Watcher, error) {
 		watcher.Write)
 
 	syncer := &Watcher{
-		root:         root,
-		watch:        w,
-		wg:           new(sync.WaitGroup),
-		cancelations: make([]context.CancelFunc, 0),
+		root:          root,
+		watch:         w,
+		wg:            new(sync.WaitGroup),
+		cancelations:  make([]context.CancelFunc, 0),
+		eventHandlers: make(map[string]Handler, 0),
 	}
 	if err := w.AddRecursive(root); err != nil {
 		return nil, err
@@ -87,10 +91,10 @@ func (s *Watcher) Stop() {
 	s.wg.Wait()
 }
 
-func (s *Watcher) ShowWatchContext() []models.Object {
-	objects := make([]models.Object, 0)
+func (s *Watcher) ShowWatchContext() []Object {
+	objects := make([]Object, 0)
 	for path, f := range s.watch.WatchedFiles() {
-		objects = append(objects, models.Object{
+		objects = append(objects, Object{
 			path: path,
 			obj:  f,
 		})
