@@ -39,9 +39,9 @@ func main() {
 	}
 
 	// event handlers
-	//s3syncer := handlers.NewS3Syncer(cfg.GetRegion(), cfg.GetBucketName(), cfg.GetRoot())
+	s3syncer := handlers.NewS3Syncer(cfg.GetRegion(), cfg.GetBucketName(), cfg.GetRoot())
 	fakeHandler := handlers.NewFakeHandler()
-	//watcher.Add("s3syncer", s3syncer)
+	watcher.Add("s3syncer", s3syncer)
 	watcher.Add("stub", fakeHandler)
 
 	err = watcher.Start(time.Second * 1)
