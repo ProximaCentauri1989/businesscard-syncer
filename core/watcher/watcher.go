@@ -72,11 +72,14 @@ func (s *Watcher) listen() {
 	}()
 }
 
-func (s *Watcher) Start(pollingInterval time.Duration) error {
+func (s *Watcher) Start(pollingInterval time.Duration) {
 	s.pollingInterval = pollingInterval
 	// detach event listening
 	s.listen()
-	return s.watch.Start(s.pollingInterval)
+	err := s.watch.Start(s.pollingInterval)
+	if err != nil {
+		log.Fatalf("Failed to start event listener")
+	}
 }
 
 func (s *Watcher) Add(name string, handle Handler) {
@@ -88,7 +91,9 @@ func (s *Watcher) Stop() {
 		cancel()
 	}
 	s.watch.Close()
+	log.Println("Before wait")
 	s.wg.Wait()
+	log.Println("After wait")
 }
 
 func (s *Watcher) ShowWatchContext() []Object {

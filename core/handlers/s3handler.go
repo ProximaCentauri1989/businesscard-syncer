@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -75,19 +74,21 @@ func NewS3Syncer(region, bucket, root string) *s3Syncer {
 	})
 	uploader := s3manager.NewUploader(sess)
 	return &s3Syncer{
-		uploader: uploader,
+		uploader:   uploader,
+		bucketName: bucket,
+		root:       root,
 	}
 }
 
 func (s *s3Syncer) Handle(ctx context.Context, event watcher.Event, wg *sync.WaitGroup) {
-	log.Printf("Event %s received at %s", event.Name(), time.Now().String())
+	log.Printf("Event %s received at %s", event.Op, event.ModTime().String())
 
 	select {
 	case <-ctx.Done():
 		log.Println("Cancelation signal received. Syncing session will be skipped")
 	default:
 		if err := s.sync(); err != nil {
-			log.Printf("Failed to sync folder '%s' with bucker '%s'", s.root, s.bucketName)
+			log.Printf("Failed to sync folder '%s' with bucker '%s': %s", s.root, s.bucketName, err)
 		}
 	}
 	wg.Done()
@@ -96,11 +97,8 @@ func (s *s3Syncer) Handle(ctx context.Context, event watcher.Event, wg *sync.Wai
 func (s *s3Syncer) newSyncIterator() *SyncFolderIterator {
 	metadata := []fileInfo{}
 	filepath.Walk(s.root, func(p string, info os.FileInfo, err error) error {
-		if !info.IsDir() {
-			key := strings.TrimPrefix(p, s.root)
-			metadata = append(metadata, fileInfo{key, p})
-		}
-
+		key := strings.TrimPrefix(p, s.root)
+		metadata = append(metadata, fileInfo{key, p})
 		return nil
 	})
 

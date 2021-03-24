@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/ProximaCentauri1989/businesscard-syncer/config"
@@ -44,15 +45,13 @@ func main() {
 	watcher.Add("s3syncer", s3syncer)
 	watcher.Add("stub", fakeHandler)
 
-	err = watcher.Start(time.Second * 1)
-	if err != nil {
-		setFatal(err)
-		return
-	}
+	go watcher.Start(time.Second * 1)
 
 	// gracefull stop
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt)
-	<-quit
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	log.Printf("Syncer started at %s", time.Now().String())
+	sig := <-quit
+	log.Printf("%s signal received, shutting down Syncer", sig)
 	watcher.Stop()
 }
